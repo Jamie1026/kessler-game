@@ -16,59 +16,51 @@ class JamieController(KesslerController):
         ...
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
-        """
-        Method processed each time step by this controller to determine what control actions to take
-
-        Arguments:
-            ship_state (dict): contains state information for your own ship
-            game_state (dict): contains state information for all objects in the game
-
-        Returns:
-            float: thrust control value
-            float: turn-rate control value
-            bool: fire control value. Shoots if true
-            bool: mine deployment control value. Lays mine if true
-        """
-        #print(ship_state)
-        #print()
-        #print (game_state)
-        #print()
-
-        print(game_state['asteroids'][0]['position'][1])
+        # Find the closest asteroid
         closest_ast = None
-        closest_ast_dist_so_far = 100000000000
+        closest_ast_dist = float('inf')
         for asteroid in game_state['asteroids']:
-            ast_x = asteroid['position'][0]
-            ast_y = asteroid['position'][1]
-            ship_x = ship_state['position'][0]
-            ship_y = ship_state['position'][1]
-            dist_to_current_asteroid = math.sqrt((ast_x - ship_x) ** 2 + (ast_y - ship_y) ** 2)
-            if dist_to_current_asteroid < closest_ast_dist_so_far:
-                closest_ast_dist_so_far = dist_to_current_asteroid
+            dist = math.sqrt((asteroid['position'][0] - ship_state['position'][0])**2 +
+                            (asteroid['position'][1] - ship_state['position'][1])**2)
+            if dist < closest_ast_dist:
+                closest_ast_dist = dist
                 closest_ast = asteroid
 
-        # Calculate angle to the closest asteroid in radians
+        # Ship's position and heading
         ship_x, ship_y = ship_state['position']
-        ast_x, ast_y = closest_ast['position']
-        angle_to_ast_rad = math.atan2(ast_y - ship_y, ast_x - ship_x)
-
-        # Convert ship heading from degrees to radians for comparison
         ship_heading_deg = ship_state['heading']
+        bullet_speed = 300  # Approximate speed of the bullet (adjust as needed)
+
+        # Asteroid's current position and velocity
+        ast_x, ast_y = closest_ast['position']
+        ast_vx, ast_vy = closest_ast['velocity']
+
+        # Predict where the asteroid will be
+        t = 0  # Initial guess for time
+        for _ in range(10):  # Iterate to refine the prediction
+            future_ast_x = ast_x + ast_vx * t
+            future_ast_y = ast_y + ast_vy * t
+            dist_to_future_ast = math.sqrt((future_ast_x - ship_x)**2 + (future_ast_y - ship_y)**2)
+            t = dist_to_future_ast / bullet_speed
+
+        # Future position of the asteroid
+        future_ast_x = ast_x + ast_vx * t
+        future_ast_y = ast_y + ast_vy * t
+
+        # Calculate angle to the predicted position
+        angle_to_ast_rad = math.atan2(future_ast_y - ship_y, future_ast_x - ship_x)
+        angle_to_ast_deg = math.degrees(angle_to_ast_rad)
+
+        # Calculate angle difference
         ship_heading_rad = math.radians(ship_heading_deg)
-
-        # Calculate angle difference in radians
-        angle_diff_rad = angle_to_ast_rad - ship_heading_rad
+        angle_diff_rad = math.radians(angle_to_ast_deg) - ship_heading_rad
         angle_diff_rad = (angle_diff_rad + math.pi) % (2 * math.pi) - math.pi  # Normalize to [-π, π]
-
-        # Convert angle difference back to degrees
         angle_diff_deg = math.degrees(angle_diff_rad)
 
         # Set turn rate proportional to the angle difference
-        turn_sensitivity = 5  # Adjust as needed for responsiveness
+        turn_sensitivity = 5  # Adjust as needed
         turn_rate = angle_diff_deg * turn_sensitivity
-
-        # Clamp turn_rate to maximum allowed value if needed (e.g., ±170 degrees/second)
-        max_turn_rate = 170  # Maximum allowed turn rate in degrees/second
+        max_turn_rate = 170  # Maximum allowed turn rate
         turn_rate = max(-max_turn_rate, min(turn_rate, max_turn_rate))
 
         # Set constant thrust
