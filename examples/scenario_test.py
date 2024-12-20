@@ -5,10 +5,11 @@
 
 import time
 
-from src.kesslergame import Scenario, KesslerGame, GraphicsType
+from kesslergame import Scenario, KesslerGame, GraphicsType
 from test_controller import TestController
+from jamie_controller import JamieController
 from graphics_both import GraphicsBoth
-
+print('hello')
 # Define game scenario
 my_test_scenario = Scenario(name='Test Scenario',
                             num_asteroids=10,
@@ -33,7 +34,7 @@ game = KesslerGame(settings=game_settings)  # Use this to visualize the game sce
 
 # Evaluate the game
 pre = time.perf_counter()
-score, perf_data = game.run(scenario=my_test_scenario, controllers=[TestController(), TestController()])
+score, perf_data = game.run(scenario=my_test_scenario, controllers=[JamieController(), TestController()])
 
 # Print out some general info about the result
 print('Scenario eval time: '+str(time.perf_counter()-pre))
