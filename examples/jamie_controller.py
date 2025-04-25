@@ -6,9 +6,17 @@
 #things to work on:
 #mines, not reshooting target, not shooting at offscreen minus wrap,  
 
+
 from kesslergame import KesslerController
 from typing import Dict, Tuple
 import math
+from impact_time_cal import predict_collision
+import numpy as np
+import skfuzzy as fuzz
+from skfuzzy import control as ctrl
+
+
+
 
 def wrapped_distance(x1, y1, x2, y2, map_size):
     """Calculate the shortest distance between two points considering screen wrapping."""
@@ -77,7 +85,7 @@ def prioritize_imminent_collision(ship_state: Dict, game_state: Dict) -> Dict:
 
     imminent_asteroid = None
     shortest_time = float('inf')
-
+    
     for asteroid in game_state['asteroids']:
         asteroid_pos = asteroid['position']
         asteroid_velocity = asteroid['velocity']
@@ -187,17 +195,41 @@ def prioritize_imminent_collision_OLD(ship_state: Dict, game_state: Dict) -> Dic
 
 class JamieController(KesslerController):
     def __init__(self):
+        self.prev_lives = None
         """
         Any variables or initialization desired for the controller can be set up here
         """
         ...
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
+        import pprint
+        pprint.pprint(ship_state)
+        pprint.pprint(game_state)
         # Ship state and properties
         ship_x, ship_y = ship_state['position']
         ship_heading_deg = ship_state['heading']
         ship_heading_rad = math.radians(ship_heading_deg)
         bullet_speed = 800  # Speed of bullets
         
+
+        #ACTIONS PASTE 
+
+        current_lives = ship_state['lives_remaining']
+        can_deploy_mine = ship_state['can_deploy_mine']
+
+        # Initialize previous lives on first frame
+        if self.prev_lives is None:
+            self.prev_lives = current_lives
+
+        # Check for life loss (hit)
+        hit_detected = current_lives < self.prev_lives
+        impact_time_interval= predict_collision(ship_state['position'], (0,0), 20, asteroid['position'], asteroid['velocity'], asteroid['radius'])
+        print(f"{impact_time_interval=}")
+        #drop_mine = hit_detected and can_deploy_mine
+        # Update for next frame
+        self.prev_lives = current_lives
+
+        #PASTE EMD 
+
         # Check for imminent collision
         most_imminent_ast = prioritize_imminent_collision(ship_state, game_state)
         if most_imminent_ast is not None:
@@ -271,9 +303,42 @@ class JamieController(KesslerController):
         # Always fire
         #fire = True
 
-        # Don't drop mines
-        drop_mine = False
+        
+        #paste start HEREHEEEEEEEEEEEEEEEEEEEEE
 
+        if not ship_state['can_fire'] and ship_state['bullets_remaining'] == 0:
+            # RAM MODE ACTIVATED 💥
+            my_team = ship_state['team']
+            my_x, my_y = ship_state['position']
+            my_heading_deg = ship_state['heading']
+
+            # Find the nearest enemy ship
+            enemy_ships = [
+                s for s in game_state['ships']
+                if s['team'] != my_team and not s['is_respawning']
+            ]
+            if enemy_ships:
+                target = min(
+                    enemy_ships,
+                    key=lambda s: math.hypot(s['position'][0] - my_x, s['position'][1] - my_y)
+                )
+                target_x, target_y = target['position']
+
+                # Calculate desired angle
+                dx = target_x - my_x
+                dy = target_y - my_y
+                desired_angle_rad = math.atan2(dy, dx)
+                desired_angle_deg = math.degrees(desired_angle_rad)
+
+                # Angle difference
+                angle_diff = (desired_angle_deg - my_heading_deg + 180) % 360 - 180
+
+                # Rotate and thrust full speed at the enemy
+                turn = max(min(angle_diff * 5, 180), -180)  # scale to turn range
+                thrust = ship_state['thrust_range'][1]  # max thrust
+                return thrust, turn, False, False  # no fire, no mine
+
+                #EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEND
         return thrust, turn_rate, fire, drop_mine
 
 
@@ -294,9 +359,10 @@ class JamieController(KesslerController):
         """
         return "Jamie Controller"
 
-    # @property
-    # def custom_sprite_path(self) -> str:
-    #     return "Neo.png"
+    @property
+    def custom_sprite_path(self) -> str:
+        return "prideship.png"
+ 
 
 '''
 Scenario 1:
