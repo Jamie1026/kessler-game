@@ -9,6 +9,16 @@ import math
 import numpy as np
 from impact_time_cal import predict_collision
 
+#new chunk
+
+print_explanation = True
+def log_explanation(message: str):
+    if print_explanation:
+        print(message)
+    else:
+        with open('explanations_jamie.txt', 'a+') as file:
+            file.write(message + '\n')
+
 def wrapped_distance(x1, y1, x2, y2, map_size):
     """Calculate the shortest distance between two points considering screen wrapping."""
     width, height = map_size
