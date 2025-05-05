@@ -3,20 +3,20 @@
 # NOTICE: This file is subject to the license agreement defined in file 'LICENSE', which is part of
 # this source code package.
 
-
-
-
 import time
-
+#from (file name without .py) import (name of controller class inside the file whatever that means)
 from main_controller_akila import AkilaController
+from galaxy_brain_controller import GalaxyBrain
 from kesslergame import Scenario, KesslerGame, GraphicsType
 from test_controller import TestController
 from jamie_controller import JamieController
 from graphics_both import GraphicsBoth
+from neo_controller import BabyNeoController
 #from  kesslergame.controller_gamepad import GamepadController
 from adversarial_scenarios_for_jie import *
 from custom_scenarios import *
 from xfc_2023_replica_scenarios import *
+#from gpt_controller import Controller
 
 xfc2023 = [
      ex_adv_four_corners_pt1,
@@ -106,7 +106,7 @@ my_test_scenario = Scenario(name='Test Scenario',
                             #    {'position': (800, 100), 'angle': 0, 'speed': 200, 'size': 4}
                             #],
                             ship_states=[
-                                {'position': (300, 400), 'angle': 90, 'lives': 3, 'team': 1, "mines_remaining": 3},
+                                {'position': (300, 400), 'angle': 90, 'lives': 300, 'team': 1, "mines_remaining": 3},
                                 {'position': (400, 600), 'angle': 90, 'lives': 3, 'team': 2, "mines_remaining": 3},
                             ],
                             map_size=(1000, 700),
@@ -129,7 +129,7 @@ pre = time.perf_counter()
 
 
 for sc in xfc2024 :
-    score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
+    score, perf_data = game.run(scenario=sc, controllers=[JamieController(), BabyNeoController()])
 
 # Print out some general info about the result
 print('Scenario eval time: '+str(time.perf_counter()-pre))

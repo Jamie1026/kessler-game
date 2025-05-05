@@ -3,20 +3,11 @@
 # NOTICE: This file is subject to the license agreement defined in file 'LICENSE', which is part of
 # this source code package.
 
-#things to work on:
-#mines, not reshooting target, not shooting at offscreen minus wrap,  
-
-
 from kesslergame import KesslerController
 from typing import Dict, Tuple
 import math
-from impact_time_cal import predict_collision
 import numpy as np
-import skfuzzy as fuzz
-from skfuzzy import control as ctrl
-
-
-
+from impact_time_cal import predict_collision
 
 def wrapped_distance(x1, y1, x2, y2, map_size):
     """Calculate the shortest distance between two points considering screen wrapping."""
@@ -25,12 +16,8 @@ def wrapped_distance(x1, y1, x2, y2, map_size):
     dy = min(abs(y1 - y2), height - abs(y1 - y2))
     return math.sqrt(dx**2 + dy**2)
 
-def wrapped_position(x, y, map_size):
-    """Wrap the position of an object to keep it inside the map."""
-    width, height = map_size
-    return x % width, y % height
-
 def time_to_collision_wrapped(ship_pos, ship_radius, asteroid_pos, asteroid_velocity, asteroid_radius, map_size):
+    # This function takes in a velocity with units of pixels/second, and returns time in seconds
     x_s, y_s = ship_pos
     x_a, y_a = asteroid_pos
     v_ax, v_ay = asteroid_velocity
@@ -77,11 +64,64 @@ def time_to_collision_wrapped(ship_pos, ship_radius, asteroid_pos, asteroid_velo
 
     return best_time
 
+#start
+
+def predict_imminent_collision(ship_state: Dict, game_state: Dict, delta_time: float) -> bool:
+    """Predict if any asteroid will collide with the ship within the next 0.5 seconds"""
+    ship_pos = ship_state['position']
+    ship_radius = 20
+    map_size = game_state['map_size']
+    prediction_time = 2*delta_time
+    
+    # Convert ship's speed and heading to velocity components
+    ship_speed = ship_state['speed']
+    ship_heading_rad = math.radians(ship_state['heading'])
+    ship_vel = (
+        ship_speed * math.cos(ship_heading_rad),
+        ship_speed * math.sin(ship_heading_rad)
+    )
+    
+    for asteroid in game_state['asteroids']:
+        # Current asteroid position and velocity
+        ast_pos = asteroid['position']
+        ast_vel = asteroid['velocity']
+        ast_radius = asteroid['radius']
+        
+        # Calculate relative velocity (ship + asteroid)
+        rel_vel = (
+            ast_vel[0] - ship_vel[0], 
+            ast_vel[1] - ship_vel[1]
+        ) # pixels per sec
+        
+        # Check collision course using time_to_collision_wrapped
+        #t_col = time_to_collision_wrapped(
+        ##    ship_pos, ship_radius,
+        #    ast_pos, rel_vel,
+        #    ast_radius, map_size
+        #)
+
+
+        #t_col = predict_collision(ship_pos, ship_vel, ship_radius, ast_pos, ast_vel, ast_radius)
+        
+        # If collision will happen within our prediction window
+        #if 0 < t_col <= prediction_time:
+        #    print(f"Will imminently coli d with ast: {asteroid}, and ship is at {ship_pos}, {ship_speed=}, {ship_heading_rad=}, {ship_state=}")
+        #    return True
+        future_x = ast_pos[0] + ast_vel[0]*delta_time*2
+        future_y = ast_pos[1] + ast_vel[1]*delta_time*2
+        if (future_x - ship_pos[0])**2 + (future_y - ship_pos[1])**2 <= (ship_radius + ast_radius)**2:
+            return True
+            
+    return False
+
+#end 
+
 def prioritize_imminent_collision(ship_state: Dict, game_state: Dict) -> Dict:
     ship_pos = ship_state['position']
     ship_radius = ship_state['radius']
     map_size = game_state['map_size']
-    bullet_speed = 800  # Speed of the ship's bullets (adjust as necessary)
+    bullet_speed = 800  # Speed of the ship's bullets
+
 
     imminent_asteroid = None
     shortest_time = float('inf')
@@ -124,10 +164,6 @@ def prioritize_imminent_collision(ship_state: Dict, game_state: Dict) -> Dict:
         dist_to_future_ast = math.sqrt((future_ast_x - ship_pos[0])**2 + (future_ast_y - ship_pos[1])**2)
         bullet_travel_time = dist_to_future_ast / bullet_speed
 
-        # If the time to intercept (bullet) is significantly different from collision time, skip
-        #if abs(bullet_travel_time - t_col) > 0.1 * t_col:  # Allow a 10% tolerance
-        #    continue
-
         # Update the closest imminent asteroid if this one is a better candidate
         if t_col < shortest_time:
             shortest_time = t_col
@@ -135,109 +171,51 @@ def prioritize_imminent_collision(ship_state: Dict, game_state: Dict) -> Dict:
 
     return imminent_asteroid
 
-
-def time_to_collision(ship_pos, ship_radius, asteroid_pos, asteroid_velocity, asteroid_radius):
-    x_s, y_s = ship_pos
-    x_a, y_a = asteroid_pos
-    v_ax, v_ay = asteroid_velocity
-    r_s = ship_radius
-    r_a = asteroid_radius
-
-    # Quadratic coefficients
-    a = v_ax**2 + v_ay**2
-    if a == 0:
-        # Asteroid is stationary; check if it's already on a collision course
-        distance = math.sqrt((x_a - x_s)**2 + (y_a - y_s)**2)
-        if distance <= r_s + r_a:
-            return 0  # Immediate collision
-        else:
-            return float('inf')  # No collision as it's stationary and out of range
-    #If asteroid go offscreen track asteroid screen wrapping
-    b = 2 * ((x_a - x_s) * v_ax + (y_a - y_s) * v_ay)
-    c = (x_a - x_s)**2 + (y_a - y_s)**2 - (r_s + r_a)**2
-
-    # Discriminant
-    discriminant = b**2 - 4 * a * c
-
-    if discriminant < 0:
-        return float('inf')  # No collision
-    else:
-        t1 = (-b - math.sqrt(discriminant)) / (2 * a)
-        t2 = (-b + math.sqrt(discriminant)) / (2 * a)
-        
-        # Return the smallest positive time
-        if t1 > 0:
-            return t1
-        elif t2 > 0:
-            return t2
-        else:
-            return float('inf')  # Both times are negative (past collision)
-
-def prioritize_imminent_collision_OLD(ship_state: Dict, game_state: Dict) -> Dict:
-    ship_pos = ship_state['position']
-    ship_radius = ship_state['radius']
-    
-    imminent_asteroid = None
-    shortest_time = float('inf')
-    
-    for asteroid in game_state['asteroids']:
-        asteroid_pos = asteroid['position']
-        asteroid_velocity = asteroid['velocity']
-        asteroid_radius = asteroid['radius']
-        
-        t = time_to_collision(ship_pos, ship_radius, asteroid_pos, asteroid_velocity, asteroid_radius)
-        
-        if t < shortest_time:
-            shortest_time = t
-            imminent_asteroid = asteroid
-    
-    return imminent_asteroid
-
 class JamieController(KesslerController):
     def __init__(self):
         self.prev_lives = None
-        """
-        Any variables or initialization desired for the controller can be set up here
-        """
-        ...
+        self.last_mine_time = -10  # Initialize to ensure first mine can be placed
+        self.mine_cooldown = 3.0  # Minimum time between mines (seconds)
+
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
-        import pprint
-        pprint.pprint(ship_state)
-        pprint.pprint(game_state)
         # Ship state and properties
         ship_x, ship_y = ship_state['position']
         ship_heading_deg = ship_state['heading']
         ship_heading_rad = math.radians(ship_heading_deg)
-        bullet_speed = 800  # Speed of bullets
-        
+        bullet_speed = 800
+        current_time = game_state['time']
+        delta_time = game_state['delta_time']
+        #yeah
+        if ship_state['lives_remaining'] == 3:
+            thrust = 0
+        elif ship_state['lives_remaining'] == 2:
+            thrust = 0
+        else:
+            thrust = 0
 
-        #ACTIONS PASTE 
+        # Mine deployment logic - predict collisions before they happen
+        drop_mine = False
+        if (ship_state['can_deploy_mine'] and ship_state['mines_remaining'] > 0 and current_time - self.last_mine_time >= self.mine_cooldown):
+            # Check for imminent collision in next frame
+            if predict_imminent_collision(ship_state, game_state, delta_time):
+                drop_mine = True
+                print("Dropping a mine!")
+                self.last_mine_time = current_time
+                #collison_time = 666 frame
+            # Also keep the hit detection as backup
+            #elif (self.prev_lives is not None and 
+                  #ship_state['lives_remaining'] < self.prev_lives):
+                #drop_mine = True
+                #self.last_mine_time = current_time
 
-        current_lives = ship_state['lives_remaining']
-        can_deploy_mine = ship_state['can_deploy_mine']
+        # Update previous lives
+        self.prev_lives = ship_state['lives_remaining']
 
-        # Initialize previous lives on first frame
-        if self.prev_lives is None:
-            self.prev_lives = current_lives
-
-        # Check for life loss (hit)
-        hit_detected = current_lives < self.prev_lives
-        impact_time_interval= predict_collision(ship_state['position'], (0,0), 20, asteroid['position'], asteroid['velocity'], asteroid['radius'])
-        print(f"{impact_time_interval=}")
-        #drop_mine = hit_detected and can_deploy_mine
-        # Update for next frame
-        self.prev_lives = current_lives
-
-        #PASTE EMD 
-
-        # Check for imminent collision
+        # Asteroid targeting logic
         most_imminent_ast = prioritize_imminent_collision(ship_state, game_state)
         if most_imminent_ast is not None:
-            print("IMMINENT")
             we_gon_shot_this = most_imminent_ast
         else:
-            print("CLOSEST")
-            # No imminent collision, find the asteroid requiring minimum rotation
             min_rotation = float('inf')
             we_gon_shot_this = None
 
@@ -263,15 +241,14 @@ class JamieController(KesslerController):
                     min_rotation = angle_diff_deg
                     we_gon_shot_this = asteroid
 
-        # If no asteroids, don't fire
         if we_gon_shot_this is None:
-            return 0, 0, False, False
+            return 0, 0, False, drop_mine
 
-        # Future position of the target asteroid
+        # Calculate firing solution
         ast_x, ast_y = we_gon_shot_this['position']
         ast_vx, ast_vy = we_gon_shot_this['velocity']
         t = 0
-        for _ in range(5):  # Refine prediction iteratively
+        for _ in range(5):
             future_ast_x = ast_x + ast_vx * t
             future_ast_y = ast_y + ast_vy * t
             dist_to_future_ast = math.sqrt((future_ast_x - ship_x)**2 + (future_ast_y - ship_y)**2)
@@ -279,40 +256,27 @@ class JamieController(KesslerController):
 
         future_ast_x = ast_x + ast_vx * t
         future_ast_y = ast_y + ast_vy * t
-        print(future_ast_x, future_ast_y)
 
-        # Calculate angle to the target
         angle_to_ast_rad = math.atan2(future_ast_y - ship_y, future_ast_x - ship_x)
         angle_diff_rad = (angle_to_ast_rad - ship_heading_rad + math.pi) % (2 * math.pi) - math.pi
         angle_diff_deg = math.degrees(angle_diff_rad)
 
-        # Set turn rate proportional to the angle difference
-        turn_sensitivity = 30  # Adjust as needed
+        turn_sensitivity = 30
         turn_rate = angle_diff_deg * turn_sensitivity
-        max_turn_rate = 180  # Maximum allowed turn rate
+        max_turn_rate = 180
         if abs(turn_rate) <= 180:
             fire = True
         else:
             fire = False
         turn_rate = max(-max_turn_rate, min(turn_rate, max_turn_rate))
-        if ship_state["is_respawning"] :
-            fire = False
-        # Set constant thrust
-        thrust = 0
-
-        # Always fire
-        #fire = True
-
         
-        #paste start HEREHEEEEEEEEEEEEEEEEEEEEE
+        if ship_state["is_respawning"]:
+            fire = False 
+   
 
+        # RAM mode when out of bullets
         if not ship_state['can_fire'] and ship_state['bullets_remaining'] == 0:
-            # RAM MODE ACTIVATED 💥
             my_team = ship_state['team']
-            my_x, my_y = ship_state['position']
-            my_heading_deg = ship_state['heading']
-
-            # Find the nearest enemy ship
             enemy_ships = [
                 s for s in game_state['ships']
                 if s['team'] != my_team and not s['is_respawning']
@@ -320,69 +284,27 @@ class JamieController(KesslerController):
             if enemy_ships:
                 target = min(
                     enemy_ships,
-                    key=lambda s: math.hypot(s['position'][0] - my_x, s['position'][1] - my_y)
+                    key=lambda s: math.hypot(s['position'][0] - ship_x, s['position'][1] - ship_y)
                 )
                 target_x, target_y = target['position']
 
-                # Calculate desired angle
-                dx = target_x - my_x
-                dy = target_y - my_y
+                dx = target_x - ship_x
+                dy = target_y - ship_y
                 desired_angle_rad = math.atan2(dy, dx)
                 desired_angle_deg = math.degrees(desired_angle_rad)
 
-                # Angle difference
-                angle_diff = (desired_angle_deg - my_heading_deg + 180) % 360 - 180
+                angle_diff = (desired_angle_deg - ship_heading_deg + 180) % 360 - 180
 
-                # Rotate and thrust full speed at the enemy
-                turn = max(min(angle_diff * 5, 180), -180)  # scale to turn range
-                thrust = ship_state['thrust_range'][1]  # max thrust
-                return thrust, turn, False, False  # no fire, no mine
+                turn = max(min(angle_diff * 5, 180), -180)
+                thrust = ship_state['thrust_range'][1]
+                return thrust, turn, False, drop_mine
 
-                #EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEND
         return thrust, turn_rate, fire, drop_mine
-
-
-    '''
-    Goal: Aim at closest asteroid
-    Find closest ast
-        - We know where we are
-        - We know where the other asteroids are
-    '''
 
     @property
     def name(self) -> str:
-        """
-        Simple property used for naming controllers such that it can be displayed in the graphics engine
-
-        Returns:
-            str: name of this controller
-        """
         return "Jamie Controller"
 
     @property
     def custom_sprite_path(self) -> str:
         return "prideship.png"
- 
-
-'''
-Scenario 1:
-There is an asteroid going to hit us, and there is a closest asteroid
-
-Currently my code does:
-1) check all the asts 
-2) find ones about to hit us
-
-2A) Gettin hit -> Target ast hitting us 
-2B)) Nothing hitting - target closest one
-
-
-I want my code to:
-1) check all the asts 
-2) find ones about to hit us
-2A) Gettin hit -> Target ast hitting us 
-2B)) Nothing hitting - look for asteroid that can be shot with miniumum ship rotation required 
-
-
-'''
-
-print("Run scenario test, not this controller!")
