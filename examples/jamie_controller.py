@@ -7,9 +7,6 @@ from kesslergame import KesslerController
 from typing import Dict, Tuple
 import math
 import numpy as np
-from impact_time_cal import predict_collision
-
-#new chunk
 
 print_explanation = True
 def log_explanation(message: str):
@@ -50,13 +47,13 @@ def time_to_collision_wrapped(ship_pos, ship_radius, asteroid_pos, asteroid_velo
         a = v_ax**2 + v_ay**2
         if a == 0:
             # Stationary asteroid case
-            distance = wrapped_distance(x_s, y_s, x_a, y_a, map_size)
+            distance = math.sqrt((x_s - x_a)**2 + (y_s - y_a)**2)
             if distance <= r_s + r_a:
                 return 0  # Immediate collision
             continue
 
         b = 2 * ((x_a - x_s) * v_ax + (y_a - y_s) * v_ay)
-        c = (wrapped_distance(x_s, y_s, x_a, y_a, map_size))**2 - (r_s + r_a)**2
+        c = c = (x_s - x_a)**2 + (y_s - y_a)**2 - (r_s + r_a)**2
 
         # Discriminant
         discriminant = b**2 - 4 * a * c
@@ -77,7 +74,7 @@ def time_to_collision_wrapped(ship_pos, ship_radius, asteroid_pos, asteroid_velo
 #start
 
 def predict_imminent_collision(ship_state: Dict, game_state: Dict, delta_time: float) -> bool:
-    """Predict if any asteroid will collide with the ship within the next 0.5 seconds"""
+    """Predict if any asteroid will collide with the ship within the next frame"""
     ship_pos = ship_state['position']
     ship_radius = 20
     map_size = game_state['map_size']
@@ -103,28 +100,12 @@ def predict_imminent_collision(ship_state: Dict, game_state: Dict, delta_time: f
             ast_vel[1] - ship_vel[1]
         ) # pixels per sec
         
-        # Check collision course using time_to_collision_wrapped
-        #t_col = time_to_collision_wrapped(
-        ##    ship_pos, ship_radius,
-        #    ast_pos, rel_vel,
-        #    ast_radius, map_size
-        #)
-
-
-        #t_col = predict_collision(ship_pos, ship_vel, ship_radius, ast_pos, ast_vel, ast_radius)
-        
-        # If collision will happen within our prediction window
-        #if 0 < t_col <= prediction_time:
-        #    print(f"Will imminently coli d with ast: {asteroid}, and ship is at {ship_pos}, {ship_speed=}, {ship_heading_rad=}, {ship_state=}")
-        #    return True
         future_x = ast_pos[0] + ast_vel[0]*delta_time*2
         future_y = ast_pos[1] + ast_vel[1]*delta_time*2
         if (future_x - ship_pos[0])**2 + (future_y - ship_pos[1])**2 <= (ship_radius + ast_radius)**2:
             return True
             
     return False
-
-#end 
 
 def prioritize_imminent_collision(ship_state: Dict, game_state: Dict) -> Dict:
     ship_pos = ship_state['position']
@@ -264,21 +245,24 @@ class JamieController(KesslerController):
             dist_to_future_ast = math.sqrt((future_ast_x - ship_x)**2 + (future_ast_y - ship_y)**2)
             t = dist_to_future_ast / bullet_speed
 
-        future_ast_x = ast_x + ast_vx * t
-        future_ast_y = ast_y + ast_vy * t
+        future_ast_x = ast_x + ast_vx * (t + 1/30)
+        future_ast_y = ast_y + ast_vy * (t + 1/30)
 
         angle_to_ast_rad = math.atan2(future_ast_y - ship_y, future_ast_x - ship_x)
         angle_diff_rad = (angle_to_ast_rad - ship_heading_rad + math.pi) % (2 * math.pi) - math.pi
         angle_diff_deg = math.degrees(angle_diff_rad)
 
-        turn_sensitivity = 30
-        turn_rate = angle_diff_deg * turn_sensitivity
+        turn_magic_num = 30
+        turn_rate = angle_diff_deg * turn_magic_num
         max_turn_rate = 180
         if abs(turn_rate) <= 180:
             fire = True
         else:
-            fire = False
-        turn_rate = max(-max_turn_rate, min(turn_rate, max_turn_rate))
+            if angle_diff_deg > 180/10 and not (0 <= ship_state['bullets_remaining'] <= 35): # SPAMMMMMM since we got bullets and because we can
+                fire = True
+            else:
+                fire = False
+        turn_rate = max(-max_turn_rate, min(turn_rate, max_turn_rate)) # clamppity damp
         
         if ship_state["is_respawning"]:
             fire = False 
