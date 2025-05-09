@@ -1109,9 +1109,9 @@ fight_for_asteroid = Scenario(name='Fight For Asteroid',
 
 
 shot_pred_test = Scenario(name='shot_pred_test',
-    asteroid_states=[{'position': (width, height*6/7), 'speed': 1000, 'angle': 180, 'size': 2}],
+    asteroid_states=[{'position': (width, height*6/7), 'speed': 800, 'angle': 136, 'size': 2}],
     ship_states=[
-        {'position': (width/4, 1), 'angle': 90, 'lives': 3, 'team': 1, "mines_remaining": 0},
+        {'position': (width/4, 1), 'angle': 90, 'lives': 30, 'team': 1, "mines_remaining": 0},
     ],
     map_size=(width, height),
     time_limit=np.inf,

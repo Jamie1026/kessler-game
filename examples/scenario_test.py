@@ -17,6 +17,7 @@ from adversarial_scenarios_for_jie import *
 from custom_scenarios import *
 from xfc_2023_replica_scenarios import *
 #from gpt_controller import Controller
+from collections import defaultdict
 
 xfc2023 = [
      ex_adv_four_corners_pt1,
@@ -42,16 +43,16 @@ xfc2023 = [
  ]
 
 xfc2024 = [
-    adv_random_small_1,
-    adv_random_small_1_2,
-    adv_multi_wall_left_easy,
-    adv_multi_four_corners,
-    adv_multi_wall_top_easy,
-    adv_multi_2wall_closing,
-    adv_wall_bottom_staggered,
-    adv_multi_wall_right_hard,
-    adv_moving_corridor_angled_1,
-    adv_moving_corridor_angled_1_mines,
+    #adv_random_small_1,
+    #adv_random_small_1_2,
+    #adv_multi_wall_left_easy,
+    #adv_multi_four_corners,
+    #adv_multi_wall_top_easy,
+    #adv_multi_2wall_closing,
+    #adv_wall_bottom_staggered,
+    #adv_multi_wall_right_hard,
+    #adv_moving_corridor_angled_1,
+    #adv_moving_corridor_angled_1_mines,
     adv_multi_ring_closing_left,
     adv_multi_ring_closing_left2,
     adv_multi_ring_closing_both2,
@@ -87,8 +88,8 @@ custom_scenarios = [
     #purgatory,
     #cross,
     #fight_for_asteroid,
-    #shot_pred_test,
-    #shredder,
+    shot_pred_test,
+    shredder,
     diagonal_shredder,
     out_of_bound_mine,
     explainability_1,
@@ -117,7 +118,7 @@ my_test_scenario = Scenario(name='Test Scenario',
 # Define Game Settings
 game_settings = {'perf_tracker': True,
                  'graphics_type': GraphicsType.Tkinter,
-                 'realtime_multiplier': 1,
+                 'realtime_multiplier': 1.0,
                  'graphics_obj': None,
                  'frequency': 30}
 
@@ -126,10 +127,58 @@ game = KesslerGame(settings=game_settings)  # Use this to visualize the game sce
 
 # Evaluate the game
 pre = time.perf_counter()
+# Initialize accumulators
+total_stats = {
+    'asteroids_hit': [0, 0],
+    'deaths': [0, 0],
+    'accuracy': [0.0, 0.0],
+    'mean_eval_time': [0.0, 0.0],
+    'scenarios': 0
+}
 
+# Run competition
+pre = time.perf_counter()
+for sc in custom_scenarios:
+    score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
 
-for sc in xfc2024 :
-    score, perf_data = game.run(scenario=sc, controllers=[JamieController(), BabyNeoController()])
+    # Accumulate stats
+    for i, team in enumerate(score.teams):
+        total_stats['asteroids_hit'][i] += team.asteroids_hit
+        total_stats['deaths'][i] += team.deaths
+        total_stats['accuracy'][i] += team.accuracy
+        total_stats['mean_eval_time'][i] += team.mean_eval_time
+    total_stats['scenarios'] += 1
+
+    # Optional: print per-scenario results
+    print(f"\nScenario: {sc.name if hasattr(sc, 'name') else 'Unnamed'}")
+    print(score.stop_reason)
+    print('Asteroids hit: ' + str([team.asteroids_hit for team in score.teams]))
+    print('Deaths: ' + str([team.deaths for team in score.teams]))
+    print('Accuracy: ' + str([team.accuracy for team in score.teams]))
+    print('Mean eval time: ' + str([team.mean_eval_time for team in score.teams]))
+
+# Calculate and print aggregate stats
+n = total_stats['scenarios']
+print("\n--- Aggregate Stats ---")
+print(f"Scenarios run: {n}")
+for i, name in enumerate(["JamieController", "AkilaController"]):
+    print(f"\n{name}:")
+    print(f"  Total Asteroids Hit: {total_stats['asteroids_hit'][i]}")
+    print(f"  Total Deaths: {total_stats['deaths'][i]}")
+    print(f"  Average Accuracy: {total_stats['accuracy'][i] / n:.2f}")
+    print(f"  Average Eval Time: {total_stats['mean_eval_time'][i] / n:.4f} seconds")
+
+# Decide winner based on most asteroids hit, then fewest deaths
+jamie_score = (total_stats['asteroids_hit'][0], -total_stats['deaths'][0])
+akila_score = (total_stats['asteroids_hit'][1], -total_stats['deaths'][1])
+winner = "JamieController" if jamie_score > akila_score else "AkilaController"
+print(f"\n🏆 Winner: {winner} 🏆")
+
+# Total time
+print('Total evaluation time: ' + str(time.perf_counter() - pre) + ' seconds')
+'''
+for sc in xfc2023 :
+    score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
 
 # Print out some general info about the result
 print('Scenario eval time: '+str(time.perf_counter()-pre))
@@ -138,3 +187,4 @@ print('Asteroids hit: ' + str([team.asteroids_hit for team in score.teams]))
 print('Deaths: ' + str([team.deaths for team in score.teams]))
 print('Accuracy: ' + str([team.accuracy for team in score.teams]))
 print('Mean eval time: ' + str([team.mean_eval_time for team in score.teams]))
+'''
