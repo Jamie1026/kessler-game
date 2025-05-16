@@ -1,3 +1,12 @@
+'''
+This program is free software. You may modify and distribute copies of this software, verbatim or with changes,
+with or without attribution, gratis or for a fee.
+
+You must grant all recipients of this software these same rights.
+
+Coyright is hereby granted to the Free Software Foundation, Boston, Massachusetts.
+'''
+
 from kesslergame import KesslerController # In Eclipse, the name of the library is kesslergame, not src.kesslergame
 from typing import Dict, Tuple
 import skfuzzy as fuzz

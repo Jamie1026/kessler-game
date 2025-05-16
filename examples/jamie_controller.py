@@ -206,8 +206,15 @@ class JamieController(KesslerController):
         self.asteroids_targeted = {}
         self.fire_this_fram = False
         self.fire_next_fram = False
-
+    
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
+        if game_state["time"] == 0: #Tim's hacky code.
+            self.prev_lives = None
+            self.last_mine_time = -10
+            self.mine_cooldown = 3.0
+            self.asteroids_targeted = {}
+            self.fire_this_fram = False
+            self.fire_next_fram = False
         ship_x, ship_y = ship_state['position'] #(log_explanation = [position])
         ship_heading_deg = ship_state['heading'] 
         ship_heading_rad = math.radians(ship_heading_deg)
@@ -226,7 +233,7 @@ class JamieController(KesslerController):
         turn = 0
         fire = False
         drop_mine = False
-
+         
         # Mine drop logic
         drop_mine = False
         if (ship_state['can_deploy_mine'] and ship_state['mines_remaining'] > 0 and current_time - self.last_mine_time >= self.mine_cooldown):
