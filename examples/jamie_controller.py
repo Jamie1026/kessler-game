@@ -457,7 +457,7 @@ class JamieController(KesslerController):
 
     @property
     def name(self) -> str:
-        return "Four-Way Nexus"
+        return "Nexus"
 
 
     @property
