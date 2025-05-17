@@ -21,6 +21,11 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import sys
 
+run_parameter_search = False
+use_graphics = True
+
+graphics_type = GraphicsType.Tkinter if use_graphics else GraphicsType.NoGraphics
+
 from os import system
 def clear():
     _ = system('cls')
@@ -123,8 +128,8 @@ my_test_scenario = Scenario(name='Test Scenario',
 
 # Define Game Settings
 game_settings = {'perf_tracker': True,
-                 'graphics_type': GraphicsType.Tkinter,
-                 'realtime_multiplier': 2.0,
+                 'graphics_type': graphics_type,
+                 'realtime_multiplier': 1.0,
                  'graphics_obj': None,
                  'frequency': 30}
 
@@ -141,81 +146,84 @@ total_stats = {
     'mean_eval_time': [0.0, 0.0],
     'scenarios': 0
 }
-'''
-x = []
-y = []
-radius = 60
-clear()
-for fudge in range(-radius, radius, 1):
-    print(f"running scenario for fudge {fudge}")
-    x.append(fudge)
-    scenario = xfc2024[-1]
-    score, perf_data = game.run(scenario=scenario, controllers=[JamieController(fudge), AkilaController()])
-    jamie_score = score.teams[0].asteroids_hit
-    y.append(jamie_score)
-    print('\t\tx =', fudge,'\ty =', jamie_score)
-max_y = max(y)
-index_max_y = y.index(max_y)
-print('MAX OCCURS AT: ', x[index_max_y], max(y))
-# Plotting
-plt.figure(figsize=(10, 6))
-plt.plot(x, y, marker='o', linestyle='-', color='blue')
-plt.title("SUper Mario Fudge factor parameter search AI training for Jamie")
-plt.xlabel("Fudge Factor")
-plt.ylabel("Asteroids Hit by Jamie")
-plt.grid(True)
-plt.show()
-sys.exit()
-'''
-#Run competition
-pre = time.perf_counter()
-for sc in custom_scenarios:
-    score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
 
-    # Accumulate stats
-    for i, team in enumerate(score.teams):
-        total_stats['asteroids_hit'][i] += team.asteroids_hit
-        total_stats['deaths'][i] += team.deaths
-        total_stats['accuracy'][i] += team.accuracy
-        total_stats['mean_eval_time'][i] += team.mean_eval_time
+if run_parameter_search:
+    x = []
+    y = []
+    minp = 0
+    maxp = 60
+    clear()
+    for fudge in range(minp, maxp):
+        print(f"running scenario for fudge {fudge}")
+        x.append(fudge)
+        scenario = xfc2024[-1]
+        score, perf_data = game.run(scenario=scenario, controllers=[JamieController(fudge), AkilaController()])
+        jamie_score = score.teams[0].asteroids_hit
+        y.append(jamie_score)
+        print('\t\tx =', fudge,'\ty =', jamie_score)
+    max_y = max(y)
+    index_max_y = y.index(max_y)
+    print('MAX OCCURS AT: ', x[index_max_y], max(y))
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, y, marker='o', linestyle='-', color='blue')
+    plt.title("SUper Mario Fudge factor parameter search AI training for Jamie")
+    plt.xlabel("Fudge Factor")
+    plt.ylabel("Asteroids Hit by Jamie")
+    plt.grid(True)
+    plt.show()
+    sys.exit()
+else:
+        
+    #Rtotal_stats['mean_eval_time'][i] += team.mean_eval_time
     total_stats['scenarios'] += 1
 
     # Optional: print per-scenario results
-    print(f"\nScenario: {sc.name if hasattr(sc, 'name') else 'Unnamed'}")
+    #print(un competition
+    pre = time.perf_counter()
+    for sc in xfc2024:
+        score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
+
+        # Accumulate stats
+        for i, team in enumerate(score.teams):
+            total_stats['asteroids_hit'][i] += team.asteroids_hit
+            total_stats['deaths'][i] += team.deaths
+            total_stats['accuracy'][i] += team.accuracy
+            print(f"\nScenario: {sc.name if hasattr(sc, 'name') else 'Unnamed'}")
+        print(score.stop_reason)
+        print('Asteroids hit: ' + str([team.asteroids_hit for team in score.teams]))
+        print('Deaths: ' + str([team.deaths for team in score.teams]))
+        print('Accuracy: ' + str([team.accuracy for team in score.teams]))
+        print('Mean eval time: ' + str([team.mean_eval_time for team in score.teams]))
+
+    # Calculate and print aggregate stats
+    n = total_stats['scenarios']
+    print("\n--- Aggregate Stats ---")
+    print(f"Scenarios run: {n}")
+    for i, name in enumerate(["JamieController", "AkilaController"]):
+        print(f"\n{name}:")
+        print(f"  Total Asteroids Hit: {total_stats['asteroids_hit'][i]}")
+        print(f"  Total Deaths: {total_stats['deaths'][i]}")
+        print(f"  Average Accuracy: {total_stats['accuracy'][i] / n:.2f}")
+        print(f"  Average Eval Time: {total_stats['mean_eval_time'][i] / n:.4f} seconds")
+
+    # Decide winner based on most asteroids hit, then fewest deaths
+    jamie_score = (total_stats['asteroids_hit'][0], -total_stats['deaths'][0])
+    akila_score = (total_stats['asteroids_hit'][1], -total_stats['deaths'][1])
+    winner = "JamieController" if jamie_score > akila_score else "AkilaController"
+    print(f"\n🏆 Winner: {winner} 🏆")
+
+    # Total time
+    print('Total evaluation time: ' + str(time.perf_counter() - pre) + ' seconds')
+    '''
+    for sc in xfc2023 :
+        score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
+
+    # Print out some general info about the result
+    print('Scenario eval time: '+str(time.perf_counter()-pre))
     print(score.stop_reason)
     print('Asteroids hit: ' + str([team.asteroids_hit for team in score.teams]))
     print('Deaths: ' + str([team.deaths for team in score.teams]))
     print('Accuracy: ' + str([team.accuracy for team in score.teams]))
     print('Mean eval time: ' + str([team.mean_eval_time for team in score.teams]))
-
-# Calculate and print aggregate stats
-n = total_stats['scenarios']
-print("\n--- Aggregate Stats ---")
-print(f"Scenarios run: {n}")
-for i, name in enumerate(["JamieController", "AkilaController"]):
-    print(f"\n{name}:")
-    print(f"  Total Asteroids Hit: {total_stats['asteroids_hit'][i]}")
-    print(f"  Total Deaths: {total_stats['deaths'][i]}")
-    print(f"  Average Accuracy: {total_stats['accuracy'][i] / n:.2f}")
-    print(f"  Average Eval Time: {total_stats['mean_eval_time'][i] / n:.4f} seconds")
-
-# Decide winner based on most asteroids hit, then fewest deaths
-jamie_score = (total_stats['asteroids_hit'][0], -total_stats['deaths'][0])
-akila_score = (total_stats['asteroids_hit'][1], -total_stats['deaths'][1])
-winner = "JamieController" if jamie_score > akila_score else "AkilaController"
-print(f"\n🏆 Winner: {winner} 🏆")
-
-# Total time
-print('Total evaluation time: ' + str(time.perf_counter() - pre) + ' seconds')
-'''
-for sc in xfc2023 :
-    score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
-
-# Print out some general info about the result
-print('Scenario eval time: '+str(time.perf_counter()-pre))
-print(score.stop_reason)
-print('Asteroids hit: ' + str([team.asteroids_hit for team in score.teams]))
-print('Deaths: ' + str([team.deaths for team in score.teams]))
-print('Accuracy: ' + str([team.accuracy for team in score.teams]))
-print('Mean eval time: ' + str([team.mean_eval_time for team in score.teams]))
-'''
+    '''

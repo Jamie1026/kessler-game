@@ -221,6 +221,7 @@ class JamieController(KesslerController):
         #make better to win 
     
     def gnuke_mode(self, ship_state, game_state) -> tuple[bool, list[int]]:
+        global super_mario_fudge_factor_64_for_gnuke_mode
         is_closing_ring = False
         list_of_frames_to_drop_mines = []
         # Do a for loop up to 10 seconds into the future to detect a closing ring. CLosing rings must happen within this time
@@ -229,7 +230,8 @@ class JamieController(KesslerController):
         threshold_fraction_of_asteroids_to_signify_closing_ring = 1/3 # 1/2 is prob fine but let's just do this to be safe
         # Find pos of asteroids for each frame
         ship_radius_to_check_closing_ring = 40 # px
-        initial_mine_drop_frame = -1
+        initial_mine_drop_frame = -10000
+        #print("This should be executed")
         for frame in range(0, 10*30):
             count_of_asts_within_mine_radius = 0
             for a in asteroids:
@@ -238,30 +240,40 @@ class JamieController(KesslerController):
                     count_of_asts_within_mine_radius += 1
             if count_of_asts_within_mine_radius/initial_asts_count > threshold_fraction_of_asteroids_to_signify_closing_ring:
                 log_explanation("CLOSING RING SCENARIO DETECTED! ACTIVATING GNUKE MODE!!!")
+                #print("CLosing ring detected")
                 is_closing_ring = True
+                break
 
             for a in asteroids:
                 a['position'] = ((a['position'][0] + a['velocity'][0]/30.0)%game_state['map_size'][0], (a['position'][1] + a['velocity'][1]/30.0)%game_state['map_size'][1])
         # Now we iterate through a second time to find when to drop the mines
         if is_closing_ring:
+            #print("GOING INTO DEEPER GNUKE CODE")
+            asteroids = copy.deepcopy(game_state['asteroids'])
             for frame in range(0, 10*30):
+                #print(frame)
                 count_of_asts_within_mine_radius = 0
-                asteroids = copy.deepcopy(game_state['asteroids'])
+                
                 for a in asteroids:
-                    if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) < 250 + a['radius'] - 1:
+                    if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) < 150 + a['radius'] - 1:
                     #if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) in [int(ship_radius_to_check_closing_ring - tol,:
                         count_of_asts_within_mine_radius += 1
                 if count_of_asts_within_mine_radius/initial_asts_count > threshold_fraction_of_asteroids_to_signify_closing_ring:
                     log_explanation("GNUKE MODE FOUND FRAME THAT MINE CAN BE DETONATED IN AND FREEZE STUFF")
+                    print(f"{frame} GNUKE MODE FOUND FRAME THAT MINE CAN BE DETONATED IN AND FREEZE STUFF")
                     initial_mine_drop_frame = frame - 3*30
+                    break
 
                 for a in asteroids:
                     a['position'] = ((a['position'][0] + a['velocity'][0]/30.0)%game_state['map_size'][0], (a['position'][1] + a['velocity'][1]/30.0)%game_state['map_size'][1])
-        initial_mine_drop_frame = super_mario_fudge_factor_64_for_gnuke_mode
-        if initial_mine_drop_frame != -1:
+        if initial_mine_drop_frame != -10000:
+            #print(super_mario_fudge_factor_64_for_gnuke_mode)
+            initial_mine_drop_frame += super_mario_fudge_factor_64_for_gnuke_mode
+            initial_mine_drop_frame = max(initial_mine_drop_frame, 0)
             list_of_frames_to_drop_mines = [initial_mine_drop_frame, initial_mine_drop_frame + 30, initial_mine_drop_frame + 30 + 30]
         if is_closing_ring:
             log_explanation(f"{list_of_frames_to_drop_mines=}")
+            print(list_of_frames_to_drop_mines)
         return is_closing_ring, list_of_frames_to_drop_mines
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
@@ -274,6 +286,7 @@ class JamieController(KesslerController):
             self.asteroids_targeted = {}
             self.fire_this_fram = False
             self.fire_next_fram = False
+            #print(f"It is timestep {game_state['time']} and we're calling gnuke code")
             self.is_closing_ring, self.list_of_frames_to_drop_mines = self.gnuke_mode(ship_state, game_state)
         if ship_state['lives_remaining'] < self.last_frame_life:
             log_explanation("OUCH life lost")
@@ -309,7 +322,7 @@ class JamieController(KesslerController):
                     blat_count = 0
                     for a in asts:
                         a['position'] = ((a['position'][0] + 3*a['velocity'][0])%game_state['map_size'][0], (a['position'][1] + 3*a['velocity'][1])%game_state['map_size'][1])
-                        if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) < 250 + a['radius']:
+                        if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) < 150 + a['radius']:
                             blat_count += 1
                     if blat_count > 0:
                         log_explanation("Damage incoming, dropping preventitive mine")
@@ -430,7 +443,7 @@ class JamieController(KesslerController):
             # MOve all asts 3 secs into future and check if any of them would get blastsed by a mine i drop right noww
             freedom_flsg = False
             for m in game_state['mines']:
-                if wrapped_distance(ship_state['position'][0], ship_state['position'][1], m['position'][0], m['position'][1], game_state['map_size']) <= ship_state['radius'] + 250:
+                if wrapped_distance(ship_state['position'][0], ship_state['position'][1], m['position'][0], m['position'][1], game_state['map_size']) <= ship_state['radius'] + 150:
                     #m['time_remaining'] <= iframes_left/30 and 
                     freedom_flsg = True
             if not freedom_flsg:
