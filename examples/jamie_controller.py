@@ -12,6 +12,7 @@ import numpy as np
 import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 import matplotlib.pyplot as plt
+import copy
 
 mine_preventative_lookahead_frames = 8
 
@@ -89,7 +90,7 @@ thrust_sim = ctrl.ControlSystemSimulation(thrust_ctrl)
 #plt.show()
 
 
-print_explanation = False
+print_explanation = True
 do_log_explanation = False
 
 last_message = ""
@@ -219,7 +220,7 @@ class JamieController(KesslerController):
         is_closing_ring = False
         list_of_frames_to_drop_mines = []
         # Do a for loop up to 10 seconds into the future to detect a closing ring. CLosing rings must happen within this time
-        asteroids = game_state['asteroids']
+        asteroids = copy.deepcopy(game_state['asteroids'])
         initial_asts_count = len(asteroids)
         threshold_fraction_of_asteroids_to_signify_closing_ring = 1/3 # 1/2 is prob fine but let's just do this to be safe
         # Find pos of asteroids for each frame
@@ -236,11 +237,12 @@ class JamieController(KesslerController):
                 is_closing_ring = True
 
             for a in asteroids:
-                a['position'] = (a['position'][0] + a['velocity'][0]/30.0, a['position'][1] + a['velocity'][1]/30.0)
+                a['position'] = ((a['position'][0] + a['velocity'][0]/30.0)%game_state['map_size'][0], (a['position'][1] + a['velocity'][1]/30.0)%game_state['map_size'][1])
         # Now we iterate through a second time to find when to drop the mines
         if is_closing_ring:
             for frame in range(0, 10*30):
                 count_of_asts_within_mine_radius = 0
+                asteroids = copy.deepcopy(game_state['asteroids'])
                 for a in asteroids:
                     if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) < 250 + a['radius'] - 1:
                     #if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) in [int(ship_radius_to_check_closing_ring - tol,:
@@ -250,10 +252,12 @@ class JamieController(KesslerController):
                     initial_mine_drop_frame = frame - 3*30
 
                 for a in asteroids:
-                    a['position'] = (a['position'][0] + a['velocity'][0]/30.0, a['position'][1] + a['velocity'][1]/30.0)
+                    a['position'] = ((a['position'][0] + a['velocity'][0]/30.0)%game_state['map_size'][0], (a['position'][1] + a['velocity'][1]/30.0)%game_state['map_size'][1])
         initial_mine_drop_frame = super_mario_fudge_factor_64_for_gnuke_mode
         if initial_mine_drop_frame != -1:
             list_of_frames_to_drop_mines = [initial_mine_drop_frame, initial_mine_drop_frame + 30, initial_mine_drop_frame + 30 + 30]
+        if is_closing_ring:
+            log_explanation(f"{list_of_frames_to_drop_mines=}")
         return is_closing_ring, list_of_frames_to_drop_mines
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:

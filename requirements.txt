@@ -3,3 +3,4 @@ pillow
 inputs
 mypy
 immutabledict
+scikit-fuzzy

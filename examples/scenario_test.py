@@ -54,15 +54,15 @@ xfc2024 = [
     #adv_multi_wall_left_easy,
     #adv_multi_four_corners,
     #adv_multi_wall_top_easy,
-    #adv_multi_2wall_closing,
-    #adv_wall_bottom_staggered,
-    #adv_multi_wall_right_hard,
+    #ad#v_multi_2wall_closing,
+    #ad#v_wall_bottom_staggered,
+    #a#dv_multi_wall_right_hard,
     #adv_moving_corridor_angled_1,
     #adv_moving_corridor_angled_1_mines,
     #adv_multi_ring_closing_left,
-    ##adv_multi_ring_closing_left2,
-    #adv_multi_ring_closing_both2,
-    #adv_multi_ring_closing_both_inside_fast,
+    #adv_multi_ring_closing_left2,
+    adv_multi_ring_closing_both2,
+    adv_multi_ring_closing_both_inside_fast,
     adv_multi_two_rings_closing
 ]
 
