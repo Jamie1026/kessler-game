@@ -18,6 +18,12 @@ from custom_scenarios import *
 from xfc_2023_replica_scenarios import *
 #from gpt_controller import Controller
 from collections import defaultdict
+import matplotlib.pyplot as plt
+import sys
+
+from os import system
+def clear():
+    _ = system('cls')
 
 xfc2023 = [
      ex_adv_four_corners_pt1,
@@ -43,20 +49,20 @@ xfc2023 = [
  ]
 
 xfc2024 = [
-    adv_random_small_1,
-    adv_random_small_1_2,
-    adv_multi_wall_left_easy,
-    adv_multi_four_corners,
-    adv_multi_wall_top_easy,
-    adv_multi_2wall_closing,
-    adv_wall_bottom_staggered,
-    adv_multi_wall_right_hard,
-    adv_moving_corridor_angled_1,
-    adv_moving_corridor_angled_1_mines,
-    adv_multi_ring_closing_left,
-    adv_multi_ring_closing_left2,
-    adv_multi_ring_closing_both2,
-    adv_multi_ring_closing_both_inside_fast,
+    #adv_random_small_1,
+    #adv_random_small_1_2,
+    #adv_multi_wall_left_easy,
+    #adv_multi_four_corners,
+    #adv_multi_wall_top_easy,
+    #adv_multi_2wall_closing,
+    #adv_wall_bottom_staggered,
+    #adv_multi_wall_right_hard,
+    #adv_moving_corridor_angled_1,
+    #adv_moving_corridor_angled_1_mines,
+    #adv_multi_ring_closing_left,
+    ##adv_multi_ring_closing_left2,
+    #adv_multi_ring_closing_both2,
+    #adv_multi_ring_closing_both_inside_fast,
     adv_multi_two_rings_closing
 ]
 
@@ -77,7 +83,7 @@ custom_scenarios = [
     #delayed_closing_ring_scenario,
     #spiral_assault_scenario,
     #dancing_ring,
-    #dancing_ring_2,
+    #dancing_ring_2,+
     #intersecting_lines_scenario,
     #exploding_grid_scenario,
     #grid_formation_explosion_scenario,
@@ -135,7 +141,32 @@ total_stats = {
     'mean_eval_time': [0.0, 0.0],
     'scenarios': 0
 }
-
+'''
+x = []
+y = []
+radius = 70-10
+clear()
+for fudge in range(-radius, radius, 1):
+    print(f"running scenario for fudge {fudge}")
+    x.append(fudge)
+    scenario = xfc2024[-1]
+    score, perf_data = game.run(scenario=scenario, controllers=[JamieController(fudge), AkilaController()])
+    jamie_score = score.teams[0].asteroids_hit
+    y.append(jamie_score)
+    print('\t\tx =', fudge,'\ty =', jamie_score)
+max_y = max(y)
+index_max_y = y.index(max_y)
+print('MAX OCCURS AT: ', x[index_max_y], max(y))
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.plot(x, y, marker='o', linestyle='-', color='blue')
+plt.title("SUper Mario Fudge factor parameter search AI training for Jamie")
+plt.xlabel("Fudge Factor")
+plt.ylabel("Asteroids Hit by Jamie")
+plt.grid(True)
+plt.show()
+sys.exit()
+'''
 # Run competition
 pre = time.perf_counter()
 for sc in xfc2024:
