@@ -67,33 +67,33 @@ xfc2024 = [
 ]
 
 custom_scenarios = [
-    #target_priority_optimization1,
-    #closing_ring_scenario,
-    #easy_closing_ring_scenario,
-    #more_intense_closing_ring_scenario,
-    #rotating_square_scenario,
-    #rotating_square_2_overlap,
-    #falling_leaves_scenario,
-    #zigzag_motion_scenario,
-    #shearing_pattern_scenario,
-    #super_hard_wrap,
-    #wonky_ring,
-    #moving_ring_scenario,
-    #shifting_square_scenario,
-    #delayed_closing_ring_scenario,
-    #spiral_assault_scenario,
-    #dancing_ring,
-    #dancing_ring_2,+
-    #intersecting_lines_scenario,
-    #exploding_grid_scenario,
-    #grid_formation_explosion_scenario,
-    #aspect_ratio_grid_formation_scenario,
-    #adv_asteroid_stealing,
-    #wrapping_nightmare,
-    #wrapping_nightmare_fast,
-    #purgatory,
-    #cross,
-    #fight_for_asteroid,
+    target_priority_optimization1,
+    closing_ring_scenario,
+    easy_closing_ring_scenario,
+    more_intense_closing_ring_scenario,
+    rotating_square_scenario,
+    rotating_square_2_overlap,
+    falling_leaves_scenario,
+    zigzag_motion_scenario,
+    shearing_pattern_scenario,
+    super_hard_wrap,
+    wonky_ring,
+    moving_ring_scenario,
+    shifting_square_scenario,
+    delayed_closing_ring_scenario,
+    spiral_assault_scenario,
+    dancing_ring,
+    dancing_ring_2,
+    intersecting_lines_scenario,
+    exploding_grid_scenario,
+    grid_formation_explosion_scenario,
+    aspect_ratio_grid_formation_scenario,
+    adv_asteroid_stealing,
+    wrapping_nightmare,
+    wrapping_nightmare_fast,
+    purgatory,
+    cross,
+    fight_for_asteroid,
     shot_pred_test,
     shredder,
     diagonal_shredder,
@@ -124,7 +124,7 @@ my_test_scenario = Scenario(name='Test Scenario',
 # Define Game Settings
 game_settings = {'perf_tracker': True,
                  'graphics_type': GraphicsType.Tkinter,
-                 'realtime_multiplier': 1.0,
+                 'realtime_multiplier': 2.0,
                  'graphics_obj': None,
                  'frequency': 30}
 
@@ -169,7 +169,7 @@ sys.exit()
 '''
 #Run competition
 pre = time.perf_counter()
-for sc in xfc2024:
+for sc in custom_scenarios:
     score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
 
     # Accumulate stats

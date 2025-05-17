@@ -3,6 +3,8 @@
 # NOTICE: This file is subject to the license agreement defined in file 'LICENSE', which is part of
 # this source code package.
 
+#THIS PROGRAM IS FREE SOFTWARE.
+
 from kesslergame import KesslerController
 from typing import Dict, Tuple
 import math
@@ -455,7 +457,7 @@ class JamieController(KesslerController):
 
     @property
     def name(self) -> str:
-        return "Jamie Controller"
+        return "Four-Way Nexus"
 
 
     @property
