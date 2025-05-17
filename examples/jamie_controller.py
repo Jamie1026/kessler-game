@@ -206,6 +206,8 @@ class JamieController(KesslerController):
         self.asteroids_targeted = {}
         self.fire_this_fram = False
         self.fire_next_fram = False
+
+        #make better to win 
     
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
         if game_state["time"] == 0: #Tim's hacky code.
@@ -278,7 +280,8 @@ class JamieController(KesslerController):
             greater_lives = True
         else:
             greater_lives = False
-        if ((target_asteroid is None and not self.fire_this_fram) or ship_state['lives_remaining'] >= 3) and greater_lives:
+        #if ((target_asteroid is None and not self.fire_this_fram) or ship_state['lives_remaining'] >= 3)*0  and greater_lives:
+        if (greater_lives and ship_state['is_respawning']): 
             log_explanation("We're doing RAM mode!")
             ram_mode = True
         else:
