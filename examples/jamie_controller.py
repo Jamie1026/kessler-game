@@ -90,7 +90,7 @@ thrust_sim = ctrl.ControlSystemSimulation(thrust_ctrl)
 #plt.show()
 
 
-print_explanation = True
+print_explanation = False
 do_log_explanation = False
 
 last_message = ""
@@ -209,6 +209,8 @@ class JamieController(KesslerController):
         self.last_mine_time = -10
         self.mine_cooldown = 3.0
         self.asteroids_targeted = {}
+        self.last_frame_life = None
+        self.last_frame_life_lost = None
         self.fire_this_fram = False
         self.fire_next_fram = False
         self.is_closing_ring = False
@@ -262,6 +264,8 @@ class JamieController(KesslerController):
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
         if game_state["time"] == 0: #Tim's hacky code.
+            self.last_frame_life = ship_state['lives_remaining']
+            self.last_frame_life_lost = -1
             self.prev_lives = None
             self.last_mine_time = -10
             self.mine_cooldown = 3.0
@@ -269,7 +273,10 @@ class JamieController(KesslerController):
             self.fire_this_fram = False
             self.fire_next_fram = False
             self.is_closing_ring, self.list_of_frames_to_drop_mines = self.gnuke_mode(ship_state, game_state)
-
+        if ship_state['lives_remaining'] < self.last_frame_life:
+            log_explanation("OUCH life lost")
+            self.last_frame_life_lost = game_state['sim_frame']
+        self.last_frame_life = ship_state['lives_remaining']
         ship_x, ship_y = ship_state['position'] #(log_explanation = [position])
         ship_heading_deg = ship_state['heading'] 
         ship_heading_rad = math.radians(ship_heading_deg)
@@ -295,9 +302,17 @@ class JamieController(KesslerController):
             # Do regular mine drop logic
             if (ship_state['can_deploy_mine'] and ship_state['mines_remaining'] > 0 and current_time - self.last_mine_time >= self.mine_cooldown):
                 if predict_imminent_collision(ship_state, game_state, delta_time):
-                    log_explanation("Damage incoming, dropping preventitive mine")
-                    drop_mine = True
-                    self.last_mine_time = current_time
+                    asts = copy.deepcopy(game_state['asteroids'])
+                    # MOve all asts 3 secs into future and check if any of them would get blastsed by a mine i drop right noww
+                    blat_count = 0
+                    for a in asts:
+                        a['position'] = ((a['position'][0] + 3*a['velocity'][0])%game_state['map_size'][0], (a['position'][1] + 3*a['velocity'][1])%game_state['map_size'][1])
+                        if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) < 250 + a['radius']:
+                            blat_count += 1
+                    if blat_count > 0:
+                        log_explanation("Damage incoming, dropping preventitive mine")
+                        drop_mine = True
+                        self.last_mine_time = current_time
         else:
             # DO GNUKE MODE LOGIC FOR MINEES
             if game_state['sim_frame'] in self.list_of_frames_to_drop_mines:
@@ -342,7 +357,7 @@ class JamieController(KesslerController):
         else:
             greater_lives = False
         #if ((target_asteroid is None and not self.fire_this_fram) or ship_state['lives_remaining'] >= 3)*0  and greater_lives:
-        if (greater_lives and ship_state['is_respawning']): 
+        if (greater_lives and ship_state['is_respawning']):
             log_explanation("We're doing RAM mode!")
             ram_mode = True
         else:
@@ -407,9 +422,27 @@ class JamieController(KesslerController):
             else:
                 return 0, 0, False, False
 
-
-
-        if self.fire_this_fram is True and not ship_state['is_respawning']:
+        if ship_state['is_respawning']:
+            iframes_left = 3*30 - (game_state['sim_frame'] - self.last_frame_life_lost)
+            asts = copy.deepcopy(game_state['asteroids'])
+            # MOve all asts 3 secs into future and check if any of them would get blastsed by a mine i drop right noww
+            freedom_flsg = False
+            for m in game_state['mines']:
+                if wrapped_distance(ship_state['position'][0], ship_state['position'][1], m['position'][0], m['position'][1], game_state['map_size']) <= ship_state['radius'] + 250:
+                    #m['time_remaining'] <= iframes_left/30 and 
+                    freedom_flsg = True
+            if not freedom_flsg:
+                for frame in range(iframes_left):
+                    if freedom_flsg:
+                        break
+                    for a in asts:
+                        a['position'] = ((a['position'][0] + a['velocity'][0]/30)%game_state['map_size'][0], (a['position'][1] + a['velocity'][1]/30)%game_state['map_size'][1])
+                        if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) <= ship_state['radius'] + a['radius']:
+                            # We gon get hit so we need to keep the invincibility
+                            freedom_flsg = True
+                            break
+        
+        if self.fire_this_fram is True and (not ship_state['is_respawning'] or not freedom_flsg):
             fire = True
         else:
             fire = False

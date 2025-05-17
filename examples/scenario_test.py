@@ -49,18 +49,18 @@ xfc2023 = [
  ]
 
 xfc2024 = [
-    #adv_random_small_1,
-    #adv_random_small_1_2,
-    #adv_multi_wall_left_easy,
-    #adv_multi_four_corners,
-    #adv_multi_wall_top_easy,
-    #ad#v_multi_2wall_closing,
-    #ad#v_wall_bottom_staggered,
-    #a#dv_multi_wall_right_hard,
-    #adv_moving_corridor_angled_1,
-    #adv_moving_corridor_angled_1_mines,
-    #adv_multi_ring_closing_left,
-    #adv_multi_ring_closing_left2,
+    adv_random_small_1,
+    adv_random_small_1_2,
+    adv_multi_wall_left_easy,
+    adv_multi_four_corners,
+    adv_multi_wall_top_easy,
+    adv_multi_2wall_closing,
+    adv_wall_bottom_staggered,
+    adv_multi_wall_right_hard,
+    adv_moving_corridor_angled_1,
+    adv_moving_corridor_angled_1_mines,
+    adv_multi_ring_closing_left,
+    adv_multi_ring_closing_left2,
     adv_multi_ring_closing_both2,
     adv_multi_ring_closing_both_inside_fast,
     adv_multi_two_rings_closing
@@ -144,7 +144,7 @@ total_stats = {
 '''
 x = []
 y = []
-radius = 70-10
+radius = 60
 clear()
 for fudge in range(-radius, radius, 1):
     print(f"running scenario for fudge {fudge}")
@@ -167,7 +167,7 @@ plt.grid(True)
 plt.show()
 sys.exit()
 '''
-# Run competition
+#Run competition
 pre = time.perf_counter()
 for sc in xfc2024:
     score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
