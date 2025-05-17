@@ -463,3 +463,4 @@ class JamieController(KesslerController):
     @property
     def custom_sprite_path(self) -> str:
         return "prideship.png"
+    #
