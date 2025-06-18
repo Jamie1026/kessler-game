@@ -16,11 +16,15 @@ from skfuzzy import control as ctrl
 import matplotlib.pyplot as plt
 import copy
 
+# Turn on and off explanation
+print_explanation = False
+do_log_explanation = False
+
+
+
 mine_preventative_lookahead_frames = 8
-
-super_mario_fudge_factor_64_for_gnuke_mode = 20
-
-# === Fuzzy Variable Definitions ===
+super_mario_fudge_factor_64_for_gnuke_mode = 17
+size_thresh_closing_ring = 3
 
 # Distance (0 to 1000 px)
 distance = ctrl.Antecedent(np.arange(0, 1001, 1), 'distance')
@@ -49,7 +53,6 @@ thrust['coast'] = fuzz.trimf(thrust.universe, [-80, 0, 80])
 thrust['normal_forward'] = fuzz.trimf(thrust.universe, [60, 180, 300])
 thrust['strong_forward'] = fuzz.trapmf(thrust.universe, [240, 360, 480, 480])
 
-# === Fuzzy Rules ===
 rules = [
     ctrl.Rule(distance['far'] & speed['reverse'], thrust['strong_forward']),
     ctrl.Rule(distance['far'] & speed['normal_reverse'], thrust['strong_forward']),
@@ -73,11 +76,9 @@ rules = [
     ctrl.Rule(distance['very_close'] & speed['reverse'], thrust['coast']),
 ]
 
-# === Build the Control System ===
 thrust_ctrl = ctrl.ControlSystem(rules)
 thrust_sim = ctrl.ControlSystemSimulation(thrust_ctrl)
 
-# === Plotting Memberships (Optional, for tuning) ===
 #fig, axs = plt.subplots(3, 1, figsize=(12, 12))
 #distance.view(ax=axs[0])
 #axs[0].set_title('Distance Membership Functions')
@@ -90,10 +91,6 @@ thrust_sim = ctrl.ControlSystemSimulation(thrust_ctrl)
 
 #plt.tight_layout()
 #plt.show()
-
-
-print_explanation = False
-do_log_explanation = False
 
 last_message = ""
 
@@ -177,6 +174,7 @@ def predict_imminent_collision(ship_state: Dict, game_state: Dict, delta_time: f
         ast_vel = asteroid['velocity']
         ast_radius = asteroid['radius']
         #rel_vel = (ast_vel[0] - ship_vel[0], ast_vel[1] - ship_vel[1])
+        # jk we aint movin
         future_x = ast_pos[0]
         future_y = ast_pos[1]
         for _ in range(mine_preventative_lookahead_frames):
@@ -184,11 +182,9 @@ def predict_imminent_collision(ship_state: Dict, game_state: Dict, delta_time: f
             future_y += ast_vel[1] * delta_time
             if (future_x - ship_pos[0])**2 + (future_y - ship_pos[1])**2 <= (ship_radius + ast_radius)**2:
                 return True
-        
-
     return False
 
-def prioritize_imminent_collision(ship_state: Dict, game_state: Dict) -> Dict:
+def prioritize_imminent_collision(ship_state: Dict, game_state: Dict, closing_ring: bool) -> Dict:
     ship_pos = ship_state['position']
     ship_radius = ship_state['radius']
     map_size = game_state['map_size']
@@ -197,16 +193,25 @@ def prioritize_imminent_collision(ship_state: Dict, game_state: Dict) -> Dict:
     shortest_time = float('inf')
 
     for asteroid in game_state['asteroids']:
+        if closing_ring and asteroid['size'] <= size_thresh_closing_ring and game_state['sim_frame'] < 5*30:
+            continue
         t_col = time_to_collision_wrapped(ship_pos, ship_radius, asteroid['position'], asteroid['velocity'], asteroid['radius'], map_size)
         if t_col < shortest_time:
             shortest_time = t_col
             imminent_asteroid = asteroid
-
+    if len(game_state['asteroids']) > 2 and imminent_asteroid is None:
+        # relax bro
+        for asteroid in game_state['asteroids']:
+            t_col = time_to_collision_wrapped(ship_pos, ship_radius, asteroid['position'], asteroid['velocity'], asteroid['radius'], map_size)
+            if t_col < shortest_time:
+                shortest_time = t_col
+                imminent_asteroid = asteroid
     return imminent_asteroid
 
 class JamieController(KesslerController):
     def __init__(self, fudge_fact = None):
         global super_mario_fudge_factor_64_for_gnuke_mode
+        self.first_scen_count = 1
         self.prev_lives = None
         self.last_mine_time = -10
         self.mine_cooldown = 3.0
@@ -229,7 +234,7 @@ class JamieController(KesslerController):
         initial_asts_count = len(asteroids)
         threshold_fraction_of_asteroids_to_signify_closing_ring = 1/3 # 1/2 is prob fine but let's just do this to be safe
         # Find pos of asteroids for each frame
-        ship_radius_to_check_closing_ring = 40 # px
+        ship_radius_to_check_closing_ring = 100 # px
         initial_mine_drop_frame = -10000
         #print("This should be executed")
         for frame in range(0, 10*30):
@@ -260,7 +265,8 @@ class JamieController(KesslerController):
                         count_of_asts_within_mine_radius += 1
                 if count_of_asts_within_mine_radius/initial_asts_count > threshold_fraction_of_asteroids_to_signify_closing_ring:
                     log_explanation("GNUKE MODE FOUND FRAME THAT MINE CAN BE DETONATED IN AND FREEZE STUFF")
-                    print(f"{frame} GNUKE MODE FOUND FRAME THAT MINE CAN BE DETONATED IN AND FREEZE STUFF")
+                    #print(f"{frame} GNUKE MODE FOUND FRAME THAT MINE CAN BE DETONATED IN AND FREEZE STUFF")
+                    print("GNUKE MODE ACTIVATING!!!! KABOOM!!!!")
                     initial_mine_drop_frame = frame - 3*30
                     break
 
@@ -273,11 +279,12 @@ class JamieController(KesslerController):
             list_of_frames_to_drop_mines = [initial_mine_drop_frame, initial_mine_drop_frame + 30, initial_mine_drop_frame + 30 + 30]
         if is_closing_ring:
             log_explanation(f"{list_of_frames_to_drop_mines=}")
-            print(list_of_frames_to_drop_mines)
+            #print(list_of_frames_to_drop_mines)
         return is_closing_ring, list_of_frames_to_drop_mines
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
-        if game_state["time"] == 0: #Tim's hacky code.
+        if game_state["sim_frame"] == 0:
+            self.first_scen_count -= 1
             self.last_frame_life = ship_state['lives_remaining']
             self.last_frame_life_lost = -1
             self.prev_lives = None
@@ -325,7 +332,7 @@ class JamieController(KesslerController):
                         if wrapped_distance(ship_state['position'][0], ship_state['position'][1], a['position'][0], a['position'][1], game_state['map_size']) < 150 + a['radius']:
                             blat_count += 1
                     if blat_count > 0:
-                        log_explanation("Damage incoming, dropping preventitive mine")
+                        log_explanation("Damage incoming, dropping preventitative mine")
                         drop_mine = True
                         self.last_mine_time = current_time
         else:
@@ -338,8 +345,11 @@ class JamieController(KesslerController):
         self.prev_lives = ship_state['lives_remaining']
         target_asteroid = None
         if ship_state['bullets_remaining'] != 0:
-            most_imminent_ast = prioritize_imminent_collision(ship_state, game_state)
+            most_imminent_ast = prioritize_imminent_collision(ship_state, game_state, self.is_closing_ring)
             for asteroid in game_state['asteroids']:
+                if self.is_closing_ring and asteroid['size'] <= size_thresh_closing_ring and game_state['sim_frame'] < 5*30:
+                    continue
+                # Go through asterdois and foind target
                 canon_key = canonicalize_asteroid(asteroid, current_time, map_size)
                 if canon_key in self.asteroids_targeted:
                     continue # don't waste bullet, bad for environment badddd
@@ -348,6 +358,7 @@ class JamieController(KesslerController):
                 ast_vx, ast_vy = asteroid['velocity']
                 t = 0
                 for _ in range(5):
+                    # iterateive search to home in on solution (but never actually get there)
                     future_x = ast_x + ast_vx * t
                     future_y = ast_y + ast_vy * t
                     dist = math.sqrt((future_x - ship_x)**2 + (future_y - ship_y)**2)
@@ -389,10 +400,10 @@ class JamieController(KesslerController):
             turn = max(-180, min(angle_diff_deg * 30, 180))
             self.fire_next_fram = abs(angle_diff_deg) < 6# or (angle_diff_deg > 18 and ship_state['bullets_remaining'] > 35)
 
-            if abs(angle_diff_deg) < 6:
+            if abs(angle_diff_deg) < 6: # 6 is deg ship turns in one frame
                 log_explanation('I locked onto an asteroid!')
                 self.asteroids_targeted[canon_key] = current_time + intercept_time # secs
-            elif abs(angle_diff_deg) < 18:
+            elif abs(angle_diff_deg) < 18: # 18 is deg ship turns in one shot cooldown cycle
                 dont_spray = True
 
         # RAM mode
@@ -402,7 +413,6 @@ class JamieController(KesslerController):
             fire = False
             my_team = ship_state['team']
             enemies = [s for s in game_state['ships'] if s['team'] != my_team]
-
             if enemies:
                 try:
                     # Find closest enemy
@@ -423,7 +433,7 @@ class JamieController(KesslerController):
                     distance_val = wrapped_distance(ship_x, ship_y, target_x, target_y, map_size)
                     speed_val = ship_state['speed']
 
-                    # Apply fuzzy logic
+                    # Apply fuzzy wuzzy logic
                     thrust_sim.input['distance'] = max(min(distance_val, 1000), 0)
                     thrust_sim.input['speed'] = max(min(speed_val, 240), -240)
                     thrust_sim.compute()
@@ -466,14 +476,17 @@ class JamieController(KesslerController):
                 fire = True
             else:
                 fire = False
+        if self.first_scen_count == 0 and True:
+            if game_state['sim_frame'] <= 22:
+                thrust = 240
+            elif game_state['sim_frame'] <= 30:
+                thrust = -240
         return thrust, turn, fire, drop_mine
 
     @property
     def name(self) -> str:
         return "Nexus"
 
-
     @property
     def custom_sprite_path(self) -> str:
         return "prideship.png"
-    #
