@@ -3,6 +3,9 @@
 # NOTICE: This file is subject to the license agreement defined in file 'LICENSE', which is part of
 # this source code package.
 
+from jamie_controller_OLD import JamieController as JamieControllerOld
+
+
 import time
 #from (file name without .py) import (name of controller class inside the file whatever that means)
 from main_controller_akila import AkilaController
@@ -109,6 +112,7 @@ custom_scenarios = [
     minefield_maze_scenario,
     wrap_collision_test
 ]
+#game_state  = fudged +- 1 all directions 
 
 # Define game scenario
 my_test_scenario = Scenario(name='Test Scenario',
@@ -182,7 +186,7 @@ else:
     #print(un competition
     pre = time.perf_counter()
     for sc in xfc2024:
-        score, perf_data = game.run(scenario=sc, controllers=[JamieController(), AkilaController()])
+        score, perf_data = game.run(scenario=sc, controllers=[JamieControllerOld(), JamieController()])
 
         # Accumulate stats
         for i, team in enumerate(score.teams):

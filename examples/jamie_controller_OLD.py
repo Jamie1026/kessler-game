@@ -90,59 +90,6 @@ thrust_sim = ctrl.ControlSystemSimulation(thrust_ctrl)
 #plt.show()
 
 last_message = ""
-def fudge_game_state(game_state):
-    # Convert immutabledict to regular dict if needed
-    game_state = dict(game_state)
-
-    fudged_asteroids = []
-
-    for asteroid in game_state['asteroids']:
-        if asteroid['size'] == 4:
-            x, y = asteroid['position']
-
-            # Original asteroid
-            fudged_asteroids.append(asteroid)
-
-            # Three "twin" asteroids with tweaked positions
-            twin1 = asteroid.copy()
-            twin1['position'] = (x + 1, y)
-            fudged_asteroids.append(twin1)
-
-            twin2 = asteroid.copy()
-            twin2['position'] = (x - 1, y)
-            fudged_asteroids.append(twin2)
-
-            twin3 = asteroid.copy()
-            twin3['position'] = (x, y + 1)
-            fudged_asteroids.append(twin3)
-
-            twin4 = asteroid.copy()
-            twin4['position'] = (x -1, y + 1 )
-            fudged_asteroids.append(twin4)
-
-            twin5 = asteroid.copy()
-            twin5['position'] = (x + 1, y + 1)
-            fudged_asteroids.append(twin5)
-
-            twin6 = asteroid.copy()
-            twin6['position'] = (x - 1, y - 1)
-            fudged_asteroids.append(twin6)
-
-            twin7 = asteroid.copy()
-            twin7['position'] = (x + 1, y - 1)
-            fudged_asteroids.append(twin7)
-
-            twin8 = asteroid.copy()
-            twin8['position'] = (x, y - 1)
-            fudged_asteroids.append(twin8)
-
-
-        else:
-            # Keep non-size 4 asteroids as is
-            fudged_asteroids.append(asteroid)
-
-    game_state['asteroids'] = fudged_asteroids
-    return game_state
 
 def log_explanation(message: str):
     global last_message
@@ -265,7 +212,6 @@ class JamieController(KesslerController):
         self.prev_lives = None
         self.last_mine_time = -10
         self.mine_cooldown = 3.0
-        self.use_forecasted_fudging = False
         self.asteroids_targeted = {}
         self.last_frame_life = None
         self.last_frame_life_lost = None
@@ -334,22 +280,7 @@ class JamieController(KesslerController):
         return is_closing_ring, list_of_frames_to_drop_mines
 
     def actions(self, ship_state: Dict, game_state: Dict) -> Tuple[float, float, bool, bool]:
-        current_time = game_state['time']
-        if current_time == 0:
-            count_asts = 0
-            count_size_4_asts = 0
-            for a in game_state['asteroids']:
-                if a['size'] == 4:
-                    count_size_4_asts += 1
-            count_asts = len(game_state['asteroids'])
-            if count_asts < 10 and count_size_4_asts > 2:
-                self.use_forecasted_fudging = True
-
-            print(game_state)
-        if self.use_forecasted_fudging:
-            game_state = fudge_game_state(game_state)
         if game_state["sim_frame"] == 0:
-            self.use_forecasted_fudging = False
             self.first_scen_count -= 1
             self.last_frame_life = ship_state['lives_remaining']
             self.last_frame_life_lost = -1
@@ -369,9 +300,7 @@ class JamieController(KesslerController):
         ship_heading_deg = ship_state['heading'] 
         ship_heading_rad = math.radians(ship_heading_deg)
         bullet_speed = 800
-       
-        if current_time == 0:
-            print(game_state)
+        current_time = game_state['time']
         delta_time = game_state['delta_time']
         map_size = game_state['map_size']
         self.fire_this_fram = self.fire_next_fram
@@ -379,7 +308,8 @@ class JamieController(KesslerController):
         # Expire old targeting info
         self.asteroids_targeted = {
             k: v for k, v in self.asteroids_targeted.items() if v > current_time
-        } 
+        }
+
         thrust = 0
         turn = 0
         fire = False
@@ -547,7 +477,7 @@ class JamieController(KesslerController):
 
     @property
     def name(self) -> str:
-        return "Nexus"
+        return "uidriugeribkd"
 
     @property
     def custom_sprite_path(self) -> str:
